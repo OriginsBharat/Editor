@@ -1,0 +1,38 @@
+************* Module main
+backend/main.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+backend/main.py:13:0: C0116: Missing function or method docstring (missing-function-docstring)
+backend/main.py:5:0: C0411: standard import "os" should be placed before third party imports "fastapi.FastAPI", "fastapi.staticfiles.StaticFiles", "fastapi.responses.FileResponse" and local import "routers.video_router" (wrong-import-order)
+backend/main.py:5:0: W0611: Unused import os (unused-import)
+************* Module services.llm_service
+backend/services/llm_service.py:30:0: C0301: Line too long (113/100) (line-too-long)
+backend/services/llm_service.py:31:0: C0301: Line too long (111/100) (line-too-long)
+backend/services/llm_service.py:32:0: C0301: Line too long (111/100) (line-too-long)
+backend/services/llm_service.py:33:0: C0301: Line too long (108/100) (line-too-long)
+backend/services/llm_service.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+backend/services/llm_service.py:11:9: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+backend/services/llm_service.py:50:11: W0718: Catching too general exception Exception (broad-exception-caught)
+backend/services/llm_service.py:2:0: C0411: standard import "json" should be placed before third party import "groq.Groq" (wrong-import-order)
+backend/services/llm_service.py:3:0: C0411: standard import "os" should be placed before third party import "groq.Groq" (wrong-import-order)
+backend/services/llm_service.py:4:0: C0411: standard import "typing.Dict" should be placed before third party import "groq.Groq" (wrong-import-order)
+************* Module routers.command_router
+backend/routers/command_router.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+backend/routers/command_router.py:3:0: E0402: Attempted relative import beyond top-level package (relative-beyond-top-level)
+backend/routers/command_router.py:2:0: C0411: standard import "typing.Dict" should be placed before third party import "fastapi.APIRouter" (wrong-import-order)
+************* Module routers.config_router
+backend/routers/config_router.py:20:0: C0303: Trailing whitespace (trailing-whitespace)
+backend/routers/config_router.py:25:0: C0303: Trailing whitespace (trailing-whitespace)
+backend/routers/config_router.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+backend/routers/config_router.py:8:0: C0115: Missing class docstring (missing-class-docstring)
+backend/routers/config_router.py:15:0: C0116: Missing function or method docstring (missing-function-docstring)
+backend/routers/config_router.py:23:13: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+backend/routers/config_router.py:28:8: W0707: Consider explicitly re-raising using 'raise HTTPException(status_code=500, detail=str(e)) from e' (raise-missing-from)
+backend/routers/config_router.py:3:0: C0411: standard import "json" should be placed before third party imports "fastapi.APIRouter", "pydantic.BaseModel" (wrong-import-order)
+backend/routers/config_router.py:4:0: C0411: standard import "os" should be placed before third party imports "fastapi.APIRouter", "pydantic.BaseModel" (wrong-import-order)
+************* Module routers.video_router
+backend/routers/video_router.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+backend/routers/video_router.py:28:8: W0707: Consider explicitly re-raising using 'raise HTTPException(status_code=500, detail=f'There was an error uploading the file: {e}') from e' (raise-missing-from)
+backend/routers/video_router.py:2:0: C0411: standard import "shutil" should be placed before third party import "fastapi.APIRouter" (wrong-import-order)
+backend/routers/video_router.py:3:0: C0411: standard import "pathlib.Path" should be placed before third party import "fastapi.APIRouter" (wrong-import-order)
+
+-----------------------------------
+Your code has been rated at 5.70/10
