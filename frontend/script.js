@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const logContainer = document.getElementById("logContainer");
     const apiKeyInput = document.getElementById("apiKeyInput");
     const saveKeyButton = document.getElementById("saveApiKey");
+    let lastUploadedFilename = ""; // Variable to store the last uploaded filename
 
     function log(message) {
         logContainer.textContent += `> ${message}\n`;
@@ -36,22 +37,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    executeButton.addEventListener("click", async () => {
-        const command = commandInput.value;
+    // Handle video upload separately to store the filename
+    videoUpload.addEventListener("change", async () => {
         const videoFile = videoUpload.files[0];
-
-        if (!command || !videoFile) {
-            log("Please enter a command and select a video file.");
+        if (!videoFile) {
             return;
         }
 
-        log("Executing command...");
+        log("Uploading video...");
         const formData = new FormData();
-        formData.append("file", videoFile); // Changed from "video" to "file" to match backend
+        formData.append("file", videoFile);
 
         try {
-            // Step 1: Upload the video
-            log("Uploading video...");
             const uploadResponse = await fetch("/video/upload", {
                 method: "POST",
                 body: formData,
@@ -60,14 +57,31 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!uploadResponse.ok) {
                 throw new Error(uploadResult.detail || "Video upload failed");
             }
-            log(`Video uploaded: ${uploadResult.filename}`);
+            lastUploadedFilename = uploadResult.filename; // Store the filename
+            log(`Video uploaded successfully: ${lastUploadedFilename}`);
+        } catch (error) {
+            log(`An error occurred during upload: ${error.message}`);
+            lastUploadedFilename = ""; // Reset on failure
+        }
+    });
 
-            // Step 2: Send the command
-            log("Sending command...");
+    executeButton.addEventListener("click", async () => {
+        const command = commandInput.value;
+
+        if (!command || !lastUploadedFilename) {
+            log("Please upload a video and enter a command before executing.");
+            return;
+        }
+
+        log("Sending command to backend...");
+        try {
             const commandResponse = await fetch("/control/command", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ command: command }),
+                body: JSON.stringify({
+                    command: command,
+                    video_filename: lastUploadedFilename // Send the stored filename
+                }),
             });
             const commandResult = await commandResponse.json();
             if (!commandResponse.ok) {
