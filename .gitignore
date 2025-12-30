@@ -33,3 +33,9 @@ wheels/
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+# Project-specific ignores
+data/
+*.png
+browser_console.log
+video_processing/

@@ -1,64 +1,84 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const videoUploadInput = document.getElementById("videoUpload");
+    const videoUpload = document.getElementById("videoUpload");
     const commandInput = document.getElementById("commandInput");
-    const executeButton = document.getElementById("submitCommand");
+    const executeButton = document.getElementById("executeCommand");
     const logContainer = document.getElementById("logContainer");
+    const apiKeyInput = document.getElementById("apiKeyInput");
+    const saveKeyButton = document.getElementById("saveApiKey");
 
-    executeButton.addEventListener("click", async () => {
-        const videoFile = videoUploadInput.files[0];
-        const command = commandInput.value;
+    function log(message) {
+        logContainer.textContent += `> ${message}\n`;
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
 
-        if (!videoFile || !command) {
-            log("Please select a video file and enter a command.");
+    saveKeyButton.addEventListener("click", async () => {
+        const apiKey = apiKeyInput.value;
+        if (!apiKey) {
+            log("Please enter an API key.");
             return;
         }
-
-        log("Starting process...");
+        log("Saving API Key...");
 
         try {
-            // Step 1: Upload the video
-            log("Uploading video...");
-            const videoFormData = new FormData();
-            videoFormData.append("file", videoFile);
-
-            const uploadResponse = await fetch("http://localhost:8000/video/upload", {
-                method: "POST",
-                body: videoFormData,
+            const response = await fetch('/config/api-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiKey: apiKey }),
             });
-
-            if (!uploadResponse.ok) {
-                throw new Error("Video upload failed.");
+            const result = await response.json();
+            if (response.ok) {
+                log("API Key saved successfully.");
+            } else {
+                throw new Error(result.detail || "Failed to save API key");
             }
-
-            const uploadResult = await uploadResponse.json();
-            log(`Video uploaded successfully: ${uploadResult.filename}`);
-
-            // Step 2: Send the command
-            log("Sending command...");
-            const commandResponse = await fetch("http://localhost:8000/control/command", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ command: command }),
-            });
-
-            if (!commandResponse.ok) {
-                throw new Error("Command processing failed.");
-            }
-
-            const commandResult = await commandResponse.json();
-            log(`Command response: ${JSON.stringify(commandResult, null, 2)}`);
-            log("Process complete.");
-
         } catch (error) {
             log(`Error: ${error.message}`);
         }
     });
 
-    function log(message) {
-        logContainer.textContent += `${new Date().toLocaleTimeString()}: ${message}\n`;
-        // Scroll to the bottom of the log
-        logContainer.scrollTop = logContainer.scrollHeight;
-    }
+    executeButton.addEventListener("click", async () => {
+        const command = commandInput.value;
+        const videoFile = videoUpload.files[0];
+
+        if (!command || !videoFile) {
+            log("Please enter a command and select a video file.");
+            return;
+        }
+
+        log("Executing command...");
+        const formData = new FormData();
+        formData.append("file", videoFile); // Changed from "video" to "file" to match backend
+
+        try {
+            // Step 1: Upload the video
+            log("Uploading video...");
+            const uploadResponse = await fetch("/video/upload", {
+                method: "POST",
+                body: formData,
+            });
+            const uploadResult = await uploadResponse.json();
+            if (!uploadResponse.ok) {
+                throw new Error(uploadResult.detail || "Video upload failed");
+            }
+            log(`Video uploaded: ${uploadResult.filename}`);
+
+            // Step 2: Send the command
+            log("Sending command...");
+            const commandResponse = await fetch("/control/command", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ command: command }),
+            });
+            const commandResult = await commandResponse.json();
+            if (!commandResponse.ok) {
+                throw new Error(commandResult.detail || "Command execution failed");
+            }
+
+            log("Server response:");
+            log(JSON.stringify(commandResult, null, 2));
+
+        } catch (error) {
+            log(`An error occurred: ${error.message}`);
+        }
+    });
 });

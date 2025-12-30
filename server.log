@@ -1,8 +1,0 @@
-INFO:     Started server process [8261]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:40886 - "POST /video/upload HTTP/1.1" 200 OK
-INFO:     127.0.0.1:40886 - "OPTIONS /control/command HTTP/1.1" 200 OK
-Received command: Remove text from the video
-INFO:     127.0.0.1:40898 - "POST /control/command HTTP/1.1" 200 OK

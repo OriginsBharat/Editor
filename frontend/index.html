@@ -4,11 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Pratyaharthi</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
         <h1>Project Pratyaharthi</h1>
+        <div class="card">
+            <h2>Configuration</h2>
+            <input type="password" id="apiKeyInput" placeholder="Enter your Groq API Key">
+            <button id="saveApiKey">Save Key</button>
+        </div>
         <div class="card">
             <h2>Upload Video</h2>
             <input type="file" id="videoUpload" accept="video/*">
@@ -16,7 +21,7 @@
         <div class="card">
             <h2>Enter Command</h2>
             <input type="text" id="commandInput" placeholder="e.g., 'Remove Chinese text from the video'">
-            <button id="submitCommand">Execute</button>
+            <button id="executeCommand">Execute</button>
         </div>
         <div class="card">
             <h2>Logs</h2>
@@ -27,6 +32,6 @@
             <video id="videoPlayer" controls></video>
         </div>
     </div>
-    <script src="script.js"></script>
+    <script src="/static/script.js"></script>
 </body>
 </html>
