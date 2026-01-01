@@ -3,35 +3,46 @@ This service handles the Optical Character Recognition (OCR) part of the video p
 It is responsible for detecting text in video frames.
 """
 import cv2
+import os
+import logging
 from paddleocr import PaddleOCR
 from typing import List, Dict, Any
 
-# Initialize the PaddleOCR engine for Chinese and English
-# This is done once when the module is loaded to be efficient.
-# The models are automatically downloaded on the first run.
-print("Initializing PaddleOCR engine...")
-ocr_engine = PaddleOCR(use_angle_cls=True, lang='ch')
-print("PaddleOCR engine initialized successfully.")
+# --- Logging Setup ---
+log = logging.getLogger(__name__)
+
+# --- Lazy Loading for PaddleOCR Model ---
+_ocr_engine = None
+
+def _get_ocr_engine():
+    """
+    Initializes and returns the PaddleOCR engine instance.
+    This function ensures the model is only loaded once.
+    """
+    global _ocr_engine
+    if _ocr_engine is None:
+        log.info("Lazy loading the PaddleOCR engine...")
+        # Initialize the PaddleOCR engine with the updated parameter
+        _ocr_engine = PaddleOCR(use_textline_orientation=True, lang='ch')
+        log.info("PaddleOCR engine loaded successfully.")
+    return _ocr_engine
 
 def extract_frames_from_video(video_path: str, interval_seconds: int = 1) -> List[Any]:
     """
     Extracts frames from a video file at a specified interval.
-
-    Args:
-        video_path: The path to the video file.
-        interval_seconds: The interval in seconds at which to extract frames.
-
-    Returns:
-        A list of video frames (as numpy arrays).
     """
     frames = []
     video_capture = cv2.VideoCapture(video_path)
     if not video_capture.isOpened():
-        print(f"Error: Could not open video file at {video_path}")
+        log.error(f"Could not open video file at {video_path}")
         return frames
 
     fps = video_capture.get(cv2.CAP_PROP_FPS)
-    frame_interval = int(fps * interval_seconds)
+    if fps == 0:
+        frame_interval = 1
+    else:
+        frame_interval = int(fps * interval_seconds)
+
     frame_count = 0
 
     while True:
@@ -50,33 +61,29 @@ def extract_frames_from_video(video_path: str, interval_seconds: int = 1) -> Lis
 def detect_text_in_frames(frames: List[Any]) -> List[Dict[str, Any]]:
     """
     Detects Chinese text in a list of video frames using PaddleOCR.
-
-    Args:
-        frames: A list of video frames (as numpy arrays).
-
-    Returns:
-        A list of dictionaries, where each dictionary contains the OCR
-        results for a single frame.
     """
+    ocr_engine = _get_ocr_engine()
     detection_results = []
-    for i, frame in enumerate(frames):
-        print(f"Processing frame {i+1}/{len(frames)}...")
-        result = ocr_engine.ocr(frame, cls=True)
 
-        # The result from PaddleOCR is a list of lists of detections for each frame.
-        # We process it to be more structured.
+    for i, frame in enumerate(frames):
+        log.info(f"Processing frame {i+1}/{len(frames)} for text detection...")
+        result = ocr_engine.predict(frame)
+
         frame_detections = []
         if result and result[0] is not None:
-            for line in result[0]:
-                box = line[0]
-                text, confidence = line[1]
+            texts = result[0].get('rec_texts', [])
+            scores = result[0].get('rec_scores', [])
+            boxes = result[0].get('dt_polys', [])
+
+            for text, score, box in zip(texts, scores, boxes):
                 frame_detections.append({
                     "text": text,
-                    "confidence": float(confidence),
+                    "confidence": float(score),
                     "bounding_box": box
                 })
 
         if frame_detections:
+            log.info(f"Found {len(frame_detections)} text instances in frame {i+1}.")
             detection_results.append({
                 "frame_number": i,
                 "detections": frame_detections

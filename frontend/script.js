@@ -5,23 +5,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const logContainer = document.getElementById("logContainer");
     const apiKeyInput = document.getElementById("apiKeyInput");
     const saveKeyButton = document.getElementById("saveApiKey");
-    let lastUploadedFilename = ""; // Variable to store the last uploaded filename
 
     function log(message) {
         logContainer.textContent += `> ${message}\n`;
         logContainer.scrollTop = logContainer.scrollHeight;
     }
 
+    // --- Save API Key ---
     saveKeyButton.addEventListener("click", async () => {
         const apiKey = apiKeyInput.value;
         if (!apiKey) {
-            log("Please enter an API key.");
+            log("Please enter a Groq API key.");
             return;
         }
         log("Saving API Key...");
 
         try {
-            const response = await fetch('/config/api-key', {
+            const response = await fetch('/api/config/api-key', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ apiKey: apiKey }),
@@ -37,59 +37,36 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Handle video upload separately to store the filename
-    videoUpload.addEventListener("change", async () => {
+    // --- Consolidated Video Processing ---
+    executeButton.addEventListener("click", async () => {
         const videoFile = videoUpload.files[0];
-        if (!videoFile) {
+        const command = commandInput.value;
+
+        if (!videoFile || !command) {
+            log("Please select a video file and enter a command.");
             return;
         }
 
-        log("Uploading video...");
+        log(`Sending command: "${command}" for video: "${videoFile.name}"`);
+
+        // Use FormData to send both the file and the command
         const formData = new FormData();
-        formData.append("file", videoFile);
+        formData.append("video_file", videoFile);
+        formData.append("command", command);
 
         try {
-            const uploadResponse = await fetch("/video/upload", {
+            const response = await fetch("/api/commands/process-video", {
                 method: "POST",
                 body: formData,
             });
-            const uploadResult = await uploadResponse.json();
-            if (!uploadResponse.ok) {
-                throw new Error(uploadResult.detail || "Video upload failed");
-            }
-            lastUploadedFilename = uploadResult.filename; // Store the filename
-            log(`Video uploaded successfully: ${lastUploadedFilename}`);
-        } catch (error) {
-            log(`An error occurred during upload: ${error.message}`);
-            lastUploadedFilename = ""; // Reset on failure
-        }
-    });
 
-    executeButton.addEventListener("click", async () => {
-        const command = commandInput.value;
-
-        if (!command || !lastUploadedFilename) {
-            log("Please upload a video and enter a command before executing.");
-            return;
-        }
-
-        log("Sending command to backend...");
-        try {
-            const commandResponse = await fetch("/control/command", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    command: command,
-                    video_filename: lastUploadedFilename // Send the stored filename
-                }),
-            });
-            const commandResult = await commandResponse.json();
-            if (!commandResponse.ok) {
-                throw new Error(commandResult.detail || "Command execution failed");
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.detail || "Processing failed");
             }
 
-            log("Server response:");
-            log(JSON.stringify(commandResult, null, 2));
+            log("Server Response:");
+            log(JSON.stringify(result, null, 2));
 
         } catch (error) {
             log(`An error occurred: ${error.message}`);

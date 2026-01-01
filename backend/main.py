@@ -1,9 +1,19 @@
 """Main FastAPI application for Project Pratyaharthi."""
 
+import uvicorn
+import logging
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from backend.routers import video_router, command_router, config_router
+
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
+log.info("Starting FastAPI application...")
+log.info("Importing routers...")
+from backend.routers import command_router, config_router
+log.info("Routers imported successfully.")
 
 app = FastAPI()
 
@@ -16,6 +26,11 @@ async def read_index():
     return FileResponse('frontend/index.html')
 
 # Include the API routers
-app.include_router(video_router.router, prefix="/video", tags=["video"])
-app.include_router(command_router.router, prefix="/control", tags=["control"])
-app.include_router(config_router.router, prefix="/config", tags=["config"])
+log.info("Including routers...")
+app.include_router(command_router.router, prefix="/api/commands", tags=["command"])
+app.include_router(config_router.router, prefix="/api/config", tags=["config"])
+log.info("Routers included successfully.")
+
+if __name__ == "__main__":
+    log.info("Starting Uvicorn server...")
+    uvicorn.run(app, host="0.0.0.0", port=8000)

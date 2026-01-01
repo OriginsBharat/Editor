@@ -1,49 +1,96 @@
 """Handles API endpoints for processing user commands."""
 
 import os
-from typing import Dict
-from fastapi import APIRouter, Body, HTTPException
-from backend.services import llm_service, ocr_service
+import uuid
+import shutil
+import logging
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from backend.services import llm_service
+from backend.services.ocr_service import extract_frames_from_video, detect_text_in_frames
+from backend.services.inpainting_service import inpaint_frames
+
+# --- Logging Setup ---
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 VIDEO_PROCESSING_DIR = "video_processing"
 
-@router.post("/command")
-async def process_command(payload: Dict[str, str] = Body(...)):
-    """
-    Accepts a command and a video filename.
-    If the command is to remove text, it triggers the OCR service on the video.
-    """
-    command = payload.get("command")
-    video_filename = payload.get("video_filename")
+# Ensure the directory for processing videos exists
+os.makedirs(VIDEO_PROCESSING_DIR, exist_ok=True)
 
+@router.post("/process-video")
+async def process_video_endpoint(
+    video_file: UploadFile = File(...),
+    command: str = Form(...)
+):
+    """
+    Consolidated endpoint to accept a video and a command.
+    It orchestrates the entire video processing pipeline based on the command.
+    """
+    if not video_file.filename:
+        raise HTTPException(status_code=422, detail="No video file provided.")
     if not command:
-        raise HTTPException(status_code=422, detail="Command not provided")
-    if not video_filename:
-        raise HTTPException(status_code=422, detail="Video filename not provided")
+        raise HTTPException(status_code=422, detail="No command provided.")
 
-    # Get the structured command from the LLM
-    llm_response = llm_service.parse_command(command)
+    log.info(f"Received command: '{command}' for video: '{video_file.filename}'")
 
-    if llm_response.get("error"):
-        return llm_response
+    # Create a unique path for the video file to avoid conflicts
+    unique_id = uuid.uuid4()
+    video_extension = os.path.splitext(video_file.filename)[1]
+    temp_video_filename = f"{unique_id}{video_extension}"
+    temp_video_path = os.path.join(VIDEO_PROCESSING_DIR, temp_video_filename)
 
-    # If the action is 'remove_text', start the OCR pipeline
-    if llm_response.get("action") == "remove_text":
-        video_path = os.path.join(VIDEO_PROCESSING_DIR, video_filename)
+    # Save the uploaded video file securely
+    try:
+        log.info(f"Saving uploaded video to: {temp_video_path}")
+        with open(temp_video_path, "wb") as buffer:
+            shutil.copyfileobj(video_file.file, buffer)
+            buffer.flush()
+            os.fsync(buffer.fileno())
+        log.info(f"Video saved and flushed to disk successfully.")
+    finally:
+        video_file.file.close()
 
-        if not os.path.exists(video_path):
-            raise HTTPException(status_code=404, detail=f"Video file not found: {video_filename}")
+    if not os.path.exists(temp_video_path):
+        log.error(f"CRITICAL: Video file was not found after saving: {temp_video_path}")
+        raise HTTPException(status_code=500, detail="Failed to save the uploaded video file.")
 
-        print(f"Starting OCR process for {video_path}...")
-        frames = ocr_service.extract_frames_from_video(video_path, interval_seconds=1)
-        if not frames:
-            return {"message": "No frames were extracted from the video."}
+    try:
+        # --- LLM Integration ---
+        llm_response = llm_service.parse_command(command)
+        action = llm_response.get("action")
 
-        detection_results = ocr_service.detect_text_in_frames(frames)
-        if not detection_results:
-            return {"message": "No text was detected in the specified language."}
+        if action == "remove_text":
+            log.info("Action 'remove_text' recognized. Starting video processing pipeline.")
 
-        return {"ocr_results": detection_results}
+            # 1. Extract frames
+            frames = extract_frames_from_video(temp_video_path)
+            if not frames:
+                raise HTTPException(status_code=500, detail="Could not extract frames from video.")
 
-    return llm_response
+            # 2. Detect text
+            detection_results = detect_text_in_frames(frames)
+            if not detection_results:
+                return {"message": "No text was detected that needs removal."}
+
+            # 3. Inpaint frames
+            inpainted_frames = inpaint_frames(frames, detection_results)
+            if not inpainted_frames:
+                raise HTTPException(status_code=500, detail="Inpainting process failed.")
+
+            log.info("Video processing pipeline completed successfully.")
+            return {
+                "message": "Text removal process completed successfully.",
+                "text_detections": len(detection_results)
+            }
+
+        else:
+            log.warning(f"LLM did not return a recognized action. Response: {llm_response}")
+            # For now, just return the LLM's response if the action isn't recognized
+            return llm_response
+
+    finally:
+        # --- Cleanup ---
+        # Ensure the temporary video file is always deleted
+        log.info(f"Cleaning up temporary file: {temp_video_path}")
+        os.remove(temp_video_path)
