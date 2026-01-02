@@ -68,6 +68,14 @@ document.addEventListener("DOMContentLoaded", () => {
             log("Server Response:");
             log(JSON.stringify(result, null, 2));
 
+            const videoPlayer = document.getElementById("videoPlayer");
+            if (result.output_path) {
+                log(`Processing complete. Loading video: ${result.output_path}`);
+                videoPlayer.src = `/${result.output_path}`;
+                videoPlayer.load();
+                videoPlayer.play();
+            }
+
         } catch (error) {
             log(`An error occurred: ${error.message}`);
         }

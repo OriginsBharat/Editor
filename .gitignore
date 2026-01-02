@@ -39,3 +39,5 @@ data/
 *.png
 browser_console.log
 video_processing/
+video_output/
+test_video.mp4

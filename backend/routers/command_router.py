@@ -4,19 +4,23 @@ import os
 import uuid
 import shutil
 import logging
+import cv2
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from backend.services import llm_service
 from backend.services.ocr_service import extract_frames_from_video, detect_text_in_frames
 from backend.services.inpainting_service import inpaint_frames
+from backend.services.video_utils import reassemble_video
 
 # --- Logging Setup ---
 log = logging.getLogger(__name__)
 
 router = APIRouter()
 VIDEO_PROCESSING_DIR = "video_processing"
+VIDEO_OUTPUT_DIR = "video_output"
 
-# Ensure the directory for processing videos exists
+# Ensure the directories for processing and output exist
 os.makedirs(VIDEO_PROCESSING_DIR, exist_ok=True)
+os.makedirs(VIDEO_OUTPUT_DIR, exist_ok=True)
 
 @router.post("/process-video")
 async def process_video_endpoint(
@@ -71,16 +75,38 @@ async def process_video_endpoint(
             # 2. Detect text
             detection_results = detect_text_in_frames(frames)
             if not detection_results:
-                return {"message": "No text was detected that needs removal."}
+                log.info("No text detected. Returning original video as output for verification.")
+                # For verification purposes, copy the original video to the output
+                # to confirm the end-to-end pipeline is connected.
+                output_video_filename = f"output_{unique_id}.mp4"
+                output_video_path = os.path.join("video_output", output_video_filename)
+                shutil.copyfile(temp_video_path, output_video_path)
+                return {
+                    "message": "No text was detected, original video returned.",
+                    "output_path": output_video_path,
+                    "text_detections": 0
+                }
 
             # 3. Inpaint frames
             inpainted_frames = inpaint_frames(frames, detection_results)
             if not inpainted_frames:
                 raise HTTPException(status_code=500, detail="Inpainting process failed.")
 
+            # 4. Re-assemble video
+            output_video_filename = f"output_{unique_id}.mp4"
+            output_video_path = os.path.join("video_output", output_video_filename)
+
+            # Get the original video's FPS
+            cap = cv2.VideoCapture(temp_video_path)
+            original_fps = cap.get(cv2.CAP_PROP_FPS)
+            cap.release()
+
+            reassemble_video(inpainted_frames, output_video_path, original_fps)
+
             log.info("Video processing pipeline completed successfully.")
             return {
                 "message": "Text removal process completed successfully.",
+                "output_path": output_video_path,
                 "text_detections": len(detection_results)
             }
 

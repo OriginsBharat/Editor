@@ -37,7 +37,7 @@ def parse_command(command: str) -> Dict[str, str]:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": command},
             ],
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             temperature=0.2,
             max_tokens=1024,
             response_format={"type": "json_object"},

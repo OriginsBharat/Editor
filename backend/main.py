@@ -21,8 +21,9 @@ app = FastAPI(
     version="1.7.12",
 )
 
-# Serve the frontend's static files
+# Serve the frontend's static files and the processed videos
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
+app.mount("/video_output", StaticFiles(directory="video_output"), name="video_output")
 
 @app.get("/")
 async def read_index():
