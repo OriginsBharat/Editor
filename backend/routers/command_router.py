@@ -32,7 +32,7 @@ async def process_video_endpoint(
     if not command:
         raise HTTPException(status_code=422, detail="No command provided.")
 
-    log.info(f"Received command: '{command}' for video: '{video_file.filename}'")
+    log.info("Received command: '%s' for video: '%s'", command, video_file.filename)
 
     # Create a unique path for the video file to avoid conflicts
     unique_id = uuid.uuid4()
@@ -42,17 +42,17 @@ async def process_video_endpoint(
 
     # Save the uploaded video file securely
     try:
-        log.info(f"Saving uploaded video to: {temp_video_path}")
+        log.info("Saving uploaded video to: %s", temp_video_path)
         with open(temp_video_path, "wb") as buffer:
             shutil.copyfileobj(video_file.file, buffer)
             buffer.flush()
             os.fsync(buffer.fileno())
-        log.info(f"Video saved and flushed to disk successfully.")
+        log.info("Video saved and flushed to disk successfully.")
     finally:
         video_file.file.close()
 
     if not os.path.exists(temp_video_path):
-        log.error(f"CRITICAL: Video file was not found after saving: {temp_video_path}")
+        log.error("CRITICAL: Video file was not found after saving: %s", temp_video_path)
         raise HTTPException(status_code=500, detail="Failed to save the uploaded video file.")
 
     try:
@@ -84,13 +84,12 @@ async def process_video_endpoint(
                 "text_detections": len(detection_results)
             }
 
-        else:
-            log.warning(f"LLM did not return a recognized action. Response: {llm_response}")
-            # For now, just return the LLM's response if the action isn't recognized
-            return llm_response
+        log.warning("LLM did not return a recognized action. Response: %s", llm_response)
+        # For now, just return the LLM's response if the action isn't recognized
+        return llm_response
 
     finally:
         # --- Cleanup ---
         # Ensure the temporary video file is always deleted
-        log.info(f"Cleaning up temporary file: {temp_video_path}")
+        log.info("Cleaning up temporary file: %s", temp_video_path)
         os.remove(temp_video_path)

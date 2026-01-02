@@ -46,7 +46,7 @@ def parse_command(command: str) -> Dict[str, str]:
         return json.loads(response_content)
 
     except GroqError as e:
-        return {"error": f"An API error occurred: {e.message}"}
+        return {"error": f"An API error occurred: {e}"}
     except json.JSONDecodeError:
         return {"error": "Failed to decode the API response."}
     except Exception as e:

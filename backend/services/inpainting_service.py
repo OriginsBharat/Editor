@@ -2,34 +2,32 @@
 This service handles the inpainting of video frames to remove detected text.
 It uses the LaMa (Large Mask Inpainting) model.
 """
-import os
+import logging
+from typing import List, Dict, Any
 import cv2
 import torch
 import numpy as np
-import logging
-from typing import List, Dict, Any
 from .lama import LaMa
 
 # --- Logging Setup ---
 log = logging.getLogger(__name__)
 
 # --- Lazy Loading for LaMa Model ---
-# This variable will hold the model instance. It is initialized to None.
-_lama_model = None
+LAMA_MODEL = None
 
 def _get_lama_model():
     """
     Initializes and returns the LaMa model instance.
     This function ensures the model is only loaded once.
     """
-    global _lama_model
-    if _lama_model is None:
+    global LAMA_MODEL
+    if LAMA_MODEL is None:
         log.info("Lazy loading the LaMa inpainting model...")
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        log.info(f"Using device: {device}")
-        _lama_model = LaMa(device)
+        log.info("Using device: %s", device)
+        LAMA_MODEL = LaMa(device)
         log.info("LaMa model loaded successfully.")
-    return _lama_model
+    return LAMA_MODEL
 
 def inpaint_frames(frames: List[np.ndarray], detections: List[Dict[str, Any]]) -> List[np.ndarray]:
     """
@@ -43,7 +41,7 @@ def inpaint_frames(frames: List[np.ndarray], detections: List[Dict[str, Any]]) -
 
     for i, frame in enumerate(frames):
         if i in detection_map:
-            log.info(f"Inpainting frame {i}...")
+            log.info("Inpainting frame %d...", i)
             mask = np.zeros(frame.shape[:2], dtype=np.uint8)
 
             for detection in detection_map[i]:

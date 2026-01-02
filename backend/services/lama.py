@@ -1,3 +1,6 @@
+"""
+This module provides the LaMa (Large Mask Inpainting) model for image inpainting.
+"""
 import os
 import sys
 import hashlib
@@ -9,16 +12,15 @@ import numpy as np
 import torch
 from torch.hub import download_url_to_file, get_dir
 
-
 LAMA_MODEL_URL = os.environ.get(
     "LAMA_MODEL_URL",
-    "https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt",)
-LAMA_MODEL_MD5 = os.environ.get(
-    "LAMA_MODEL_MD5",
-    "e3aa4aaa15225a33ec84f9f4bc47e500")
+    "https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt",
+)
+LAMA_MODEL_MD5 = os.environ.get("LAMA_MODEL_MD5", "e3aa4aaa15225a33ec84f9f4bc47e500")
 
 
 def md5sum(filename: str) -> str:
+    """Calculates the MD5 checksum of a file."""
     md5 = hashlib.md5()
     with open(filename, "rb") as f:
         for chunk in iter(lambda: f.read(128 * md5.block_size), b""):
@@ -26,30 +28,35 @@ def md5sum(filename: str) -> str:
     return md5.hexdigest()
 
 
-def handle_error(model_path: str, model_md5: str, e: str) -> None:
+def handle_error(model_path: str, model_md5: str, error: str) -> None:
+    """Handles errors during model loading."""
     _md5 = md5sum(model_path)
     if _md5 != model_md5:
         try:
             os.remove(model_path)
             logging.error(
-                f"Model md5: {_md5}, expected md5: {model_md5}, wrong model "
-                f"deleted. Please restart lama-cleaner. If you still have "
-                f"errors, please try download model manually first https://"
-                f"lama-cleaner-docs.vercel.app/install/download_model_"
-                f"manually.\n")
-        except:
+                "Model md5: %s, expected md5: %s, wrong model deleted.",
+                _md5,
+                model_md5,
+            )
+        except OSError:
             logging.error(
-                f"Model md5: {_md5}, expected md5: {model_md5}, please delete"
-                f" {model_path} and restart lama-cleaner.")
+                "Model md5: %s, expected md5: %s, please delete %s and restart.",
+                _md5,
+                model_md5,
+                model_path,
+            )
     else:
         logging.error(
-            f"Failed to load model {model_path}, please submit an issue at "
-            f"https://github.com/ironjr/simple-lama/issues and include a "
-            f"screenshot of the error:\n{e}")
-    exit(-1)
+            "Failed to load model %s. Error: %s",
+            model_path,
+            error,
+        )
+    sys.exit(-1)
 
 
 def get_cache_path_by_url(url: str) -> str:
+    """Gets the cache path for a given URL."""
     parts = urlparse(url)
     hub_dir = get_dir()
     model_dir = os.path.join(hub_dir, "checkpoints")
@@ -61,30 +68,32 @@ def get_cache_path_by_url(url: str) -> str:
 
 
 def download_model(url: str, model_md5: str = None) -> str:
+    """Downloads a model from a URL."""
     cached_file = get_cache_path_by_url(url)
     if not os.path.exists(cached_file):
-        sys.stderr.write('Downloading: "{}" to {}\n'.format(url, cached_file))
+        sys.stderr.write(f'Downloading: "{url}" to {cached_file}\n')
         hash_prefix = None
         download_url_to_file(url, cached_file, hash_prefix, progress=True)
         if model_md5:
             _md5 = md5sum(cached_file)
             if model_md5 == _md5:
-                logging.info(f"Download model success, md5: {_md5}")
+                logging.info("Download model success, md5: %s", _md5)
             else:
                 try:
                     os.remove(cached_file)
                     logging.error(
-                        f"Model md5: {_md5}, expected md5: {model_md5}, wrong"
-                        f" model deleted. Please restart lama-cleaner. If you"
-                        f" still have errors, please try download model "
-                        f"manually first https://lama-cleaner-docs.vercel"
-                        f".app/install/download_model_manually.\n")
-                except:
+                        "Model md5: %s, expected md5: %s, wrong model deleted.",
+                        _md5,
+                        model_md5,
+                    )
+                except OSError:
                     logging.error(
-                        f"Model md5: {_md5}, expected md5: {model_md5}, "
-                        f"please delete {cached_file} and restart lama-"
-                        f"cleaner.")
-                exit(-1)
+                        "Model md5: %s, expected md5: %s, please delete %s and restart.",
+                        _md5,
+                        model_md5,
+                        cached_file,
+                    )
+                sys.exit(-1)
     return cached_file
 
 
@@ -93,21 +102,23 @@ def load_jit_model(
     device: Union[torch.device, str],
     model_md5: str,
 ) -> torch.jit._script.RecursiveScriptModule:
+    """Loads a JIT model from a URL or path."""
     if os.path.exists(url_or_path):
         model_path = url_or_path
     else:
         model_path = download_model(url_or_path, model_md5)
 
-    logging.info(f"Loading model from: {model_path}")
+    logging.info("Loading model from: %s", model_path)
     try:
         model = torch.jit.load(model_path, map_location="cpu").to(device)
     except Exception as e:
-        handle_error(model_path, model_md5, e)
+        handle_error(model_path, model_md5, str(e))
     model.eval()
     return model
 
 
 def norm_img(np_img: np.ndarray) -> np.ndarray:
+    """Normalizes an image."""
     if len(np_img.shape) == 2:
         np_img = np_img[:, :, np.newaxis]
     np_img = np.transpose(np_img, (2, 0, 1))
@@ -115,13 +126,15 @@ def norm_img(np_img: np.ndarray) -> np.ndarray:
     return np_img
 
 
-def ceil_modulo(x: int, mod: int) -> int:
-    if x % mod == 0:
-        return x
-    return (x // mod + 1) * mod
+def ceil_modulo(x_val: int, mod: int) -> int:
+    """Calculates the ceiling of a number modulo another number."""
+    if x_val % mod == 0:
+        return x_val
+    return (x_val // mod + 1) * mod
 
 
 def pad_img_to_modulo(img: np.ndarray, mod: int) -> np.ndarray:
+    """Pads an image to a multiple of a given number."""
     if len(img.shape) == 2:
         img = img[:, :, np.newaxis]
     height, width = img.shape[:2]
@@ -135,20 +148,23 @@ def pad_img_to_modulo(img: np.ndarray, mod: int) -> np.ndarray:
 
 
 class LaMa:
+    """LaMa inpainting model."""
+
     name = "lama"
     pad_mod = 8
 
-    def __init__(self, device: Union[torch.device, str], **kwargs) -> None:
+    def __init__(self, device: Union[torch.device, str]) -> None:
         self.device = device
-        self.model = load_jit_model(
-            LAMA_MODEL_URL, device, LAMA_MODEL_MD5).eval()
+        self.model = load_jit_model(LAMA_MODEL_URL, device, LAMA_MODEL_MD5).eval()
 
     @staticmethod
     def is_downloaded() -> bool:
+        """Checks if the model is downloaded."""
         return os.path.exists(get_cache_path_by_url(LAMA_MODEL_URL))
 
     def forward(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
-        """Input image and output image have same size
+        """
+        Input image and output image have same size
         image: [H, W, C] RGB
         mask: [H, W]
         return: RGB IMAGE

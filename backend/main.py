@@ -1,7 +1,7 @@
 """Main FastAPI application for Project Pratyaharthi."""
 
-import uvicorn
 import logging
+import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -15,7 +15,11 @@ log.info("Importing routers...")
 from backend.routers import command_router, config_router
 log.info("Routers imported successfully.")
 
-app = FastAPI()
+app = FastAPI(
+    title="Project Pratyaharthi",
+    description="An AI-driven automated video localization suite.",
+    version="1.7.12",
+)
 
 # Serve the frontend's static files
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
