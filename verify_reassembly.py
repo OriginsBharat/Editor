@@ -50,8 +50,13 @@ def verify_reassembly(video_path, command):
                 print("Response JSON:", result)
 
                 output_path = result.get("output_path")
-                if output_path and os.path.exists(output_path):
-                    print(f"SUCCESS: Output video created at: {output_path}")
+                if output_path:
+                    # The server returns just the filename, which is saved in the video_output directory
+                    expected_path = os.path.join("video_output", output_path)
+                    if os.path.exists(expected_path):
+                        print(f"SUCCESS: Output video created at: {expected_path}")
+                    else:
+                        print(f"FAILURE: Output video file not found at the expected path: {expected_path}")
                 else:
                     print(f"FAILURE: Server did not return a valid output path. Response: {result}")
 

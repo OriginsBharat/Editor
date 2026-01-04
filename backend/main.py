@@ -2,7 +2,8 @@
 
 import logging
 import uvicorn
-from fastapi import FastAPI
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -21,14 +22,25 @@ app = FastAPI(
     version="1.7.12",
 )
 
-# Serve the frontend's static files and the processed videos
+# Serve the frontend's static files
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
-app.mount("/video_output", StaticFiles(directory="video_output"), name="video_output")
 
 @app.get("/")
 async def read_index():
     """Serves the main index.html file."""
     return FileResponse('frontend/index.html')
+
+# --- New Dedicated Video Endpoint ---
+@app.get("/video_output/{filename}")
+async def get_video(filename: str):
+    """
+    Serves a processed video file from the video_output directory.
+    This is more reliable than a static mount.
+    """
+    video_path = Path("video_output") / filename
+    if not video_path.is_file():
+        raise HTTPException(status_code=404, detail="Video file not found")
+    return FileResponse(str(video_path))
 
 # Include the API routers
 log.info("Including routers...")

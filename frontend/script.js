@@ -1,3 +1,4 @@
+
 document.addEventListener("DOMContentLoaded", () => {
     const videoUpload = document.getElementById("videoUpload");
     const commandInput = document.getElementById("commandInput");
@@ -5,10 +6,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const logContainer = document.getElementById("logContainer");
     const apiKeyInput = document.getElementById("apiKeyInput");
     const saveKeyButton = document.getElementById("saveApiKey");
+    const videoPlayer = document.getElementById("videoPlayer");
 
     function log(message) {
         logContainer.textContent += `> ${message}\n`;
         logContainer.scrollTop = logContainer.scrollHeight;
+        console.log(message); // Also log to browser console for easier debugging
     }
 
     // --- Save API Key ---
@@ -19,7 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         log("Saving API Key...");
-
         try {
             const response = await fetch('/api/config/api-key', {
                 method: 'POST',
@@ -48,8 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         log(`Sending command: "${command}" for video: "${videoFile.name}"`);
-
-        // Use FormData to send both the file and the command
         const formData = new FormData();
         formData.append("video_file", videoFile);
         formData.append("command", command);
@@ -68,12 +68,18 @@ document.addEventListener("DOMContentLoaded", () => {
             log("Server Response:");
             log(JSON.stringify(result, null, 2));
 
-            const videoPlayer = document.getElementById("videoPlayer");
             if (result.output_path) {
-                log(`Processing complete. Loading video: ${result.output_path}`);
-                videoPlayer.src = `/${result.output_path}`;
+                log(`Processing complete. Constructing video URL for: ${result.output_path}`);
+
+                // Construct the URL to hit the new dedicated endpoint
+                videoPlayer.src = `/video_output/${result.output_path}`;
+
+                // Mute the video to comply with browser autoplay policies
+                videoPlayer.muted = true;
+
                 videoPlayer.load();
-                videoPlayer.play();
+                videoPlayer.play().catch(e => log(`Autoplay was prevented: ${e.message}`));
+                log("Video playback initiated.");
             }
 
         } catch (error) {

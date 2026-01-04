@@ -83,7 +83,7 @@ async def process_video_endpoint(
                 shutil.copyfile(temp_video_path, output_video_path)
                 return {
                     "message": "No text was detected, original video returned.",
-                    "output_path": output_video_path,
+                    "output_path": output_video_filename, # Return just the filename
                     "text_detections": 0
                 }
 
@@ -106,7 +106,7 @@ async def process_video_endpoint(
             log.info("Video processing pipeline completed successfully.")
             return {
                 "message": "Text removal process completed successfully.",
-                "output_path": output_video_path,
+                "output_path": output_video_filename, # Return just the filename
                 "text_detections": len(detection_results)
             }
 
