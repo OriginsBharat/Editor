@@ -67,8 +67,8 @@ async def process_video_endpoint(
         if action == "remove_text":
             log.info("Action 'remove_text' recognized. Starting video processing pipeline.")
 
-            # 1. Extract frames
-            frames = extract_frames_from_video(temp_video_path)
+            # 1. Extract frames and get original FPS
+            frames, original_fps = extract_frames_from_video(temp_video_path)
             if not frames:
                 raise HTTPException(status_code=500, detail="Could not extract frames from video.")
 
@@ -96,11 +96,7 @@ async def process_video_endpoint(
             output_video_filename = f"output_{unique_id}.mp4"
             output_video_path = os.path.join("video_output", output_video_filename)
 
-            # Get the original video's FPS
-            cap = cv2.VideoCapture(temp_video_path)
-            original_fps = cap.get(cv2.CAP_PROP_FPS)
-            cap.release()
-
+            # The original_fps is now returned directly from the extraction function
             reassemble_video(inpainted_frames, output_video_path, original_fps)
 
             log.info("Video processing pipeline completed successfully.")

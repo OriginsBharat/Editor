@@ -2,6 +2,7 @@
 
 import logging
 import uvicorn
+import os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -11,9 +12,17 @@ from fastapi.responses import FileResponse
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
+# --- Directory Setup ---
+# Ensure necessary directories exist on startup
+os.makedirs("video_output", exist_ok=True)
+os.makedirs("video_processing", exist_ok=True)
+os.makedirs("data", exist_ok=True)
+log.info("Ensured all necessary directories exist.")
+
+
 log.info("Starting FastAPI application...")
 log.info("Importing routers...")
-from backend.routers import command_router, config_router
+from backend.routers import command_router
 log.info("Routers imported successfully.")
 
 app = FastAPI(
@@ -45,7 +54,6 @@ async def get_video(filename: str):
 # Include the API routers
 log.info("Including routers...")
 app.include_router(command_router.router, prefix="/api/commands", tags=["command"])
-app.include_router(config_router.router, prefix="/api/config", tags=["config"])
 log.info("Routers included successfully.")
 
 if __name__ == "__main__":

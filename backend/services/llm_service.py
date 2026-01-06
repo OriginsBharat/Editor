@@ -2,28 +2,18 @@
 
 import json
 import os
-from typing import Dict, Optional
+from typing import Dict
 from groq import Groq, GroqError
-
-def get_api_key() -> Optional[str]:
-    """Reads the Groq API key from the config file."""
-    config_path = os.path.join("data", "config.json")
-    if not os.path.exists(config_path):
-        return None
-    with open(config_path, "r", encoding="utf-8") as f:
-        config = json.load(f)
-        return config.get("groq_api_key")
 
 def parse_command(command: str) -> Dict[str, str]:
     """
     Parses a natural language command using the Groq API (Llama 3).
+    The API key is automatically read from the GROQ_API_KEY environment variable.
     """
-    api_key = get_api_key()
-    if not api_key:
-        return {"error": "API key not found. Please save your API key."}
-
     try:
-        client = Groq(api_key=api_key)
+        # The Groq client automatically reads the GROQ_API_KEY from the environment.
+        # If it's not set, the constructor will raise an error.
+        client = Groq()
         system_prompt = (
             "You are an AI assistant for a video editing suite. Your task is to "
             "parse user commands and convert them into a structured JSON format. "
@@ -46,6 +36,9 @@ def parse_command(command: str) -> Dict[str, str]:
         return json.loads(response_content)
 
     except GroqError as e:
+        # Check if the error is due to a missing API key.
+        if "api key" in str(e).lower():
+            return {"error": "GROQ_API_KEY environment variable not set. Please set it before running the application."}
         return {"error": f"An API error occurred: {e}"}
     except json.JSONDecodeError:
         return {"error": "Failed to decode the API response."}

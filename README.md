@@ -17,11 +17,29 @@ This project is an AI-driven automated video localization suite designed for Chi
 
 ## Running the Application
 
-1.  **Start the FastAPI server:**
+1.  **Set the Groq API Key:**
+    This application requires an API key from Groq to parse commands. You must set it as an environment variable.
+
+    On **Linux/macOS**:
+    ```bash
+    export GROQ_API_KEY="YOUR_API_KEY_HERE"
+    ```
+
+    On **Windows (Command Prompt)**:
+    ```bash
+    set GROQ_API_KEY="YOUR_API_KEY_HERE"
+    ```
+
+    On **Windows (PowerShell)**:
+    ```powershell
+    $env:GROQ_API_KEY="YOUR_API_KEY_HERE"
+    ```
+
+2.  **Start the FastAPI server:**
     ```bash
     uvicorn backend.main:app --reload
     ```
     The server will be available at `http://localhost:8000`.
 
-2.  **Open the frontend:**
-    Open the `frontend/index.html` file in your web browser.
+3.  **Open the application in your browser:**
+    Navigate to `http://localhost:8000` in your web browser.

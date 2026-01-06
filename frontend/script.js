@@ -4,8 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const commandInput = document.getElementById("commandInput");
     const executeButton = document.getElementById("executeCommand");
     const logContainer = document.getElementById("logContainer");
-    const apiKeyInput = document.getElementById("apiKeyInput");
-    const saveKeyButton = document.getElementById("saveApiKey");
     const videoPlayer = document.getElementById("videoPlayer");
 
     function log(message) {
@@ -13,31 +11,6 @@ document.addEventListener("DOMContentLoaded", () => {
         logContainer.scrollTop = logContainer.scrollHeight;
         console.log(message); // Also log to browser console for easier debugging
     }
-
-    // --- Save API Key ---
-    saveKeyButton.addEventListener("click", async () => {
-        const apiKey = apiKeyInput.value;
-        if (!apiKey) {
-            log("Please enter a Groq API key.");
-            return;
-        }
-        log("Saving API Key...");
-        try {
-            const response = await fetch('/api/config/api-key', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apiKey: apiKey }),
-            });
-            const result = await response.json();
-            if (response.ok) {
-                log("API Key saved successfully.");
-            } else {
-                throw new Error(result.detail || "Failed to save API key");
-            }
-        } catch (error) {
-            log(`Error: ${error.message}`);
-        }
-    });
 
     // --- Consolidated Video Processing ---
     executeButton.addEventListener("click", async () => {
@@ -60,10 +33,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: formData,
             });
 
-            const result = await response.json();
             if (!response.ok) {
-                throw new Error(result.detail || "Processing failed");
+                // Handle non-2xx responses by attempting to parse the JSON error
+                const errorResult = await response.json().catch(() => null); // Gracefully handle non-JSON responses
+                const errorMessage = errorResult ? errorResult.detail : `HTTP Error ${response.status}: ${response.statusText}`;
+                throw new Error(errorMessage);
             }
+
+            const result = await response.json();
 
             log("Server Response:");
             log(JSON.stringify(result, null, 2));

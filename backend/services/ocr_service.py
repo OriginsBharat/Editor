@@ -5,7 +5,8 @@ It is responsible for detecting text in video frames.
 import logging
 from typing import List, Dict, Any
 import cv2
-from paddleocr import PaddleOCR
+# from paddleocr import PaddleOCR # Removed from top-level to enable true lazy loading
+from langdetect import detect, LangDetectException
 
 # --- Logging Setup ---
 log = logging.getLogger(__name__)
@@ -21,42 +22,41 @@ def _get_ocr_engine():
     global OCR_ENGINE
     if OCR_ENGINE is None:
         log.info("Lazy loading the PaddleOCR engine...")
+        from paddleocr import PaddleOCR  # Import is now inside the function
         # Initialize the PaddleOCR engine with the correct parameter
         OCR_ENGINE = PaddleOCR(use_angle_cls=True, lang='ch')
         log.info("PaddleOCR engine loaded successfully.")
     return OCR_ENGINE
 
-def extract_frames_from_video(video_path: str, interval_seconds: int = 1) -> List[Any]:
+from typing import Tuple
+
+def extract_frames_from_video(video_path: str) -> Tuple[List[Any], float]:
     """
-    Extracts frames from a video file at a specified interval.
+    Extracts ALL frames from a video file and returns them along with the video's FPS.
+    If FPS metadata is missing or invalid, it defaults to a standard 30.0 FPS.
     """
     frames = []
     video_capture = cv2.VideoCapture(video_path)
     if not video_capture.isOpened():
-        log.error("Could not open video file at %s", video_path)
-        return frames
+        log.error("Could not open video file: %s", video_path)
+        return frames, 0.0 # Return empty list and 0.0 fps on failure
 
     fps = video_capture.get(cv2.CAP_PROP_FPS)
-    if fps == 0:
-        # Fallback for videos with missing FPS metadata
-        frame_interval = 1
-    else:
-        frame_interval = int(fps * interval_seconds)
+    if fps is None or fps <= 0:
+        log.warning("Video FPS metadata is missing or zero, defaulting to 30.0 FPS.")
+        fps = 30.0
 
     frame_count = 0
-
     while True:
         success, frame = video_capture.read()
         if not success:
-            break
-
-        if frame_count % frame_interval == 0:
-            frames.append(frame)
-
+            break # End of video
+        frames.append(frame)
         frame_count += 1
 
     video_capture.release()
-    return frames
+    log.info("Successfully extracted %d frames at %.2f FPS.", frame_count, fps)
+    return frames, fps
 
 def detect_text_in_frames(frames: List[Any]) -> List[Dict[str, Any]]:
     """
@@ -88,16 +88,23 @@ def detect_text_in_frames(frames: List[Any]) -> List[Dict[str, Any]]:
                 # Add a check to ensure rec_info is a tuple/list with two elements
                 if isinstance(rec_info, (list, tuple)) and len(rec_info) == 2:
                     text, confidence = rec_info
-                    log.info("OCR detected text: '%s' with confidence: %f", text, confidence) # DEBUG LOG
+                    log.info("OCR detected text: '%s' with confidence: %f", text, confidence)
 
-                    # We are only interested in removing Chinese text for this project
-                    # A simple heuristic: check if the text contains Chinese characters.
-                    if any('\u4e00' <= char <= '\u9fff' for char in text):
-                        frame_detections.append({
-                            "text": text,
-                            "confidence": float(confidence),
-                            "bounding_box": box
-                        })
+                    # Use a robust language detection library to specifically target Chinese.
+                    # The old method (checking unicode range) incorrectly removed Japanese Kanji.
+                    try:
+                        lang = detect(text)
+                        if lang == 'zh-cn':
+                            log.info("Confirmed as Simplified Chinese. Adding for removal.")
+                            frame_detections.append({
+                                "text": text,
+                                "confidence": float(confidence),
+                                "bounding_box": box
+                            })
+                        else:
+                            log.info("Detected language ('%s') is not Chinese. Keeping text.", lang)
+                    except LangDetectException:
+                        log.warning("Could not detect language for text: '%s'. Assuming it's not Chinese.", text)
                 else:
                     log.warning("Skipping detection with unexpected format: %s", rec_info)
 

@@ -4,3 +4,9 @@ python-multipart
 groq
 paddlepaddle
 paddleocr
+opencv-python
+torch
+torchvision
+numpy
+Pillow
+langdetect
