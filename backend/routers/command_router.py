@@ -6,10 +6,10 @@ import shutil
 import logging
 import cv2
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from backend.services import llm_service
+from backend.services import llm_service, voice_profile_service
 from backend.services.ocr_service import extract_frames_from_video, detect_text_in_frames
 from backend.services.inpainting_service import inpaint_frames
-from backend.services.video_utils import reassemble_video
+from backend.services.video_utils import reassemble_video, burn_subtitle_onto_frame
 
 # --- Logging Setup ---
 log = logging.getLogger(__name__)
@@ -104,6 +104,58 @@ async def process_video_endpoint(
                 "message": "Text removal process completed successfully.",
                 "output_path": output_video_filename, # Return just the filename
                 "text_detections": len(detection_results)
+            }
+
+        elif action == "translate_video":
+            character_name = llm_response.get("character")
+            if not character_name:
+                raise HTTPException(status_code=400, detail="LLM did not specify a character for translation.")
+
+            log.info("Action 'translate_video' recognized for character: %s", character_name)
+
+            # 1. Get Voice Profile
+            profile = voice_profile_service.get_voice_profile(character_name)
+            if not profile:
+                # This will eventually trigger auto-discovery. For now, it's an error.
+                raise HTTPException(status_code=404, detail=f"Voice profile for '{character_name}' not found.")
+
+            # 2. Extract frames
+            frames, original_fps = extract_frames_from_video(temp_video_path)
+            if not frames:
+                raise HTTPException(status_code=500, detail="Could not extract frames from video.")
+
+            # 3. Detect text
+            detection_results = detect_text_in_frames(frames)
+            if not detection_results:
+                log.info("No text detected. No translation needed. Returning original video.")
+                output_video_filename = f"output_{unique_id}.mp4"
+                output_video_path = os.path.join(VIDEO_OUTPUT_DIR, output_video_filename)
+                shutil.copyfile(temp_video_path, output_video_path)
+                return {"message": "No text detected, original video returned.", "output_path": output_video_filename}
+
+            # 4. Inpaint frames to create a clean slate
+            inpainted_frames = inpaint_frames(frames, detection_results)
+
+            # 5. Translate text and burn subtitles
+            for item in detection_results:
+                frame_idx = item['frame_number']
+                for detection in item['detections']:
+                    original_text = detection['text']
+                    log.info("Translating text: '%s' with profile: %s", original_text, profile['name'])
+
+                    translated_text = llm_service.translate_and_style_text(original_text, profile)
+
+                    # Burn the new subtitle onto the corresponding inpainted frame
+                    burn_subtitle_onto_frame(inpainted_frames[frame_idx], translated_text)
+
+            # 6. Re-assemble video
+            output_video_filename = f"output_{unique_id}.mp4"
+            output_video_path = os.path.join(VIDEO_OUTPUT_DIR, output_video_filename)
+            reassemble_video(inpainted_frames, output_video_path, original_fps)
+
+            return {
+                "message": f"Video successfully translated in the style of {character_name}.",
+                "output_path": output_video_filename
             }
 
         log.warning("LLM did not return a recognized action. Response: %s", llm_response)
